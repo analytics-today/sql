@@ -1,0 +1,40 @@
+select warehouse_name
+,      warehouse_size 
+,     round(count_large / count_queries * 100,0) as percent_large
+,     case
+           when avg_large >= power(2, 40) then to_char(round(avg_large / power(2, 40), 1)) || ' TB'
+           when avg_large >= power(2, 30) then to_char(round(avg_large / power(2, 30), 1)) || ' GB'
+           when avg_large >= power(2, 20) then to_char(round(avg_large / power(2, 20), 1)) || ' MB'
+           when avg_large >= power(2, 10) then to_char(round(avg_large / power(2, 10), 1)) || ' K'
+           else to_char(avg_large)
+      end as avg_bytes_large
+,     round(avg_large_exe_time) as avg_large_exe_time
+,     round(avg_execution_time) as avg_all_exe_time
+,     count_queries
+from (
+    select 
+        warehouse_name
+    ,   warehouse_size
+    ,   avg(case
+           when bytes_scanned >= power(2, 30) then bytes_scanned
+           else null
+        end) as avg_large 
+    ,   count(case
+           when bytes_scanned >= power(2, 30) then 1
+           else null
+        end) as count_large   
+    ,   avg(case
+            when bytes_scanned >= power(2,30) then total_elapsed_time/1000
+            else null
+        end) as avg_large_exe_time
+    ,   avg(bytes_scanned)              as avg_bytes_scanned
+    ,   avg(total_elapsed_time)/1000    as avg_elapsed_time
+    ,   avg(execution_time)/1000        as avg_execution_time
+    ,   count(*)                        as count_queries
+    from snowflake.account_usage.query_history q 
+    where execution_status = 'SUCCESS'
+    and warehouse_size is not null
+    -- and start_time > dateadd(month, -1, current_date())
+    group by warehouse_name
+    ,        warehouse_size)
+order by warehouse_name;
