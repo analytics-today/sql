@@ -1,3 +1,19 @@
+-- 
+-- Size Virtual Warehouse
+--
+-- This query returns for every Virtual Warehouse
+--   o The current size of the warehouse (XSMALL to X4LARGE)
+--   o The percentage of large queries (over 1Gb scanned)
+--   o The average size of large queries (Gb's returned by queries over 1Gb in size)
+--   o The average query time (seconds) for large queries
+--   o Total count of queries
+--
+-- The purpose is to provide an indication of the workload by warehouse
+--
+-- It should be used to detect:
+--   o Large queries (>1Gb) being executed on relatively small (XSMALL, SMALL or MEDIUM) warehouses
+--   o Small queries (<1Gb) being executed on relatively large (LARGE, XLARGE to X4LARGE) warehouses
+--
 select warehouse_name
 ,      warehouse_size 
 ,     round(count_large / count_queries * 100,0) as percent_large
