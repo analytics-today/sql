@@ -1,0 +1,10 @@
+-- Warehouse workload over the past 24 hours
+-- Shows the Average number of running
+-- and average queries queued in five minute intervals during the past 24 hours
+
+select *
+from table(snowflake.information_schema.warehouse_load_history(
+                        WAREHOUSE_NAME      => 'JRYAN_VWH',
+                        DATE_RANGE_START=> dateadd('day',-1,current_timestamp()),
+                        DATE_RANGE_END  => current_timestamp())) q
+ORDER BY end_time;   
