@@ -19,7 +19,7 @@ select to_char(q.start_time,'DD-MON-YYYY') as date
 ,       round(avg(queued_overload_time)/1000,0) as avg_wait_secs        -- Average wait time in seconds
 ,       count(*) as count_total                                         -- Total Quereies
 ,       count(decode(q.QUEUED_OVERLOAD_TIME,0,null,1)) as count_wait    -- Total Queries waited
-,       round(count_wait / count_total * 100) as pct_wait_count         -- Percentage of waiting queriees
+,       round(count_wait / (count_wait + count_total * 100)) as pct_wait_count         -- Percentage of waiting queriees
 from table(snowflake.information_schema.query_history_by_warehouse(
                         WAREHOUSE_NAME      => 'JRYAN_VWH',
                         END_TIME_RANGE_START=> dateadd('hour',-24,current_timestamp()),
