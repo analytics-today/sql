@@ -1,0 +1,29 @@
+-- Recent query summary history for a named VWH during the past hour
+--  from INFORMATION_SCHEMA (Up to last 14 days)
+
+select  query_type
+,       execution_status
+,       warehouse_name
+,       warehouse_size
+,       round(total_elapsed_time/1000,0)   as elapsed_secs          -- Number of seconds elapsed
+,       round(execution_time/1000,0)       as exe_secs              -- Number of seconds execution time
+,       round(queued_overload_time/1000,0) as wait_secs             -- Number of seconds waiting as VWH overloaded
+,       CASE
+         WHEN BYTES_SCANNED >= POWER(2, 40) THEN TO_CHAR(ROUND(BYTES_SCANNED / POWER(2, 40), 1)) || ' Tb'
+         WHEN BYTES_SCANNED >= POWER(2, 30) THEN TO_CHAR(ROUND(BYTES_SCANNED / POWER(2, 30), 1)) || ' Gb'
+         WHEN BYTES_SCANNED >= POWER(2, 20) THEN TO_CHAR(ROUND(BYTES_SCANNED / POWER(2, 20), 1)) || ' Mb'
+         WHEN BYTES_SCANNED >= POWER(2, 10) THEN TO_CHAR(ROUND(BYTES_SCANNED / POWER(2, 10), 1)) || ' K'
+         ELSE TO_CHAR(round(BYTES_SCANNED))                          -- Number of bytes scanned
+       END as bytes_scanned                                          -- Number of bytes scanned
+,      query_id
+,      query_text
+,      query_tag
+,      to_char(q.start_time,'DD-MON-YYYY HH24:MI:SS') as start_time_display
+,      to_char(q.end_time,'DD-MON-YYYY HH24:MI:SS') as end_time_display
+from table(snowflake.information_schema.query_history_by_warehouse(
+                        WAREHOUSE_NAME      => 'JRYAN_VWH',
+                        END_TIME_RANGE_START=> dateadd('hour',-1,current_timestamp()),
+                        END_TIME_RANGE_END  => current_timestamp(),
+                        RESULT_LIMIT=>1000)) q
+where query_type in ('SELECT','INSERT','UPDATE','DELETE')
+order by start_time desc;
