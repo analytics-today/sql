@@ -1,0 +1,29 @@
+-- Query summary by day for a given warehouse (over past month)
+-- from ACCOUNT_USAGE.
+-- Shows the number of queries executed and queued due to VWH overload by day
+-- In addition to the Average number of bytes scanned
+
+-- Use this to get an overall feel for average warehouse daily workload
+
+
+select  to_char(end_time,'DD-MON-YYYY') AS END_DATE
+,       CASE
+         WHEN avg(BYTES_SCANNED) >= POWER(2, 40) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 40), 1)) || ' Tb'
+         WHEN avg(BYTES_SCANNED) >= POWER(2, 30) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 30), 1)) || ' Gb'
+         WHEN avg(BYTES_SCANNED) >= POWER(2, 20) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 20), 1)) || ' Mb'
+         WHEN avg(BYTES_SCANNED) >= POWER(2, 10) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 10), 1)) || ' K'
+         ELSE TO_CHAR(round(avg(BYTES_SCANNED)))                        -- Average number of bytes scanned
+       END AS AVG_BYTES_SCANNED  
+,       round(avg(execution_time)/1000,0) as avg_exe_secs               -- Average execution time in seconds
+,       round(avg(queued_overload_time)/1000,0) as avg_wait_secs        -- Average wait time in seconds 
+,       count(*) as count_total                                         -- Total Queries
+,       count(decode(q.QUEUED_OVERLOAD_TIME,0,null,1)) as count_wait    -- Total Queries waited
+,       round(count_wait / count_total * 100) as pct_wait_count         -- Percentage of waiting queries
+, round(avg(bytes_scanned)) as avg_bytes                                -- Average number of bytes per query
+from snowflake.account_usage.query_history q 
+where query_type in ('SELECT', 'INSERT', 'UPDATE','DELETE')
+and   warehouse_size is not NULL
+AND   end_time BETWEEN dateadd('month',-1,current_timestamp()) AND current_timestamp()
+AND   warehouse_name = 'JRYAN_VWH'
+group by end_date
+ORDER BY end_date DESC;
