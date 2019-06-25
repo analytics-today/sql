@@ -1,31 +1,34 @@
 -- For the given Virtual Warehouse
 -- Summarize the query workload by hour for the past 24 hours
 -- Showing the total number of queries, average bytes and queued query counts
+-- From INFORMATION SCHEMA - so most recent results
 
 
 select to_char(q.start_time,'DD-MON-YYYY') as date
-,       to_char(q.start_time,'HH24:00') as time
-,       warehouse_name
-,       warehouse_size
-,       CASE
-         WHEN avg(BYTES_SCANNED) >= POWER(2, 40) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 40), 1)) || ' Tb'
-         WHEN avg(BYTES_SCANNED) >= POWER(2, 30) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 30), 1)) || ' Gb'
-         WHEN avg(BYTES_SCANNED) >= POWER(2, 20) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 20), 1)) || ' Mb'
-         WHEN avg(BYTES_SCANNED) >= POWER(2, 10) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 10), 1)) || ' K'
-         ELSE TO_CHAR(avg(BYTES_SCANNED))                               -- Average number of bytes scanned
-       END AS AVG_BYTES_SCANNED  
-,       round(avg(execution_time)/1000,0) as avg_exe_secs               -- Average execution time in seconds
-,       round(avg(queued_overload_time)/1000,0) as avg_wait_secs        -- Average wait time in seconds
-,       count(*) as count_total                                         -- Total Quereies
-,       count(decode(q.QUEUED_OVERLOAD_TIME,0,null,1)) as count_wait    -- Total Queries waited
-,       round(count_wait / count_total * 100) as pct_wait_count         -- Percentage of waiting queriees
-from  snowflake.account_usage.query_history q
+,       to_char(q.start_time,'HH24:00') as time
+,       warehouse_name
+,       warehouse_size
+,       CASE
+         WHEN avg(BYTES_SCANNED) >= POWER(2, 40) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 40), 1)) || ' Tb'
+         WHEN avg(BYTES_SCANNED) >= POWER(2, 30) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 30), 1)) || ' Gb'
+         WHEN avg(BYTES_SCANNED) >= POWER(2, 20) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 20), 1)) || ' Mb'
+         WHEN avg(BYTES_SCANNED) >= POWER(2, 10) THEN TO_CHAR(ROUND(avg(BYTES_SCANNED) / POWER(2, 10), 1)) || ' K'
+         ELSE TO_CHAR(avg(BYTES_SCANNED))                               -- Average number of bytes scanned
+       END AS AVG_BYTES_SCANNED  
+,       round(avg(execution_time)/1000,0) as avg_exe_secs               -- Average execution time in seconds
+,       round(avg(queued_overload_time)/1000,0) as avg_wait_secs        -- Average wait time in seconds
+,       count(*) as count_total                                         -- Total Quereies
+,       count(decode(q.QUEUED_OVERLOAD_TIME,0,null,1)) as count_wait    -- Total Queries waited
+,       round(count_wait / count_total * 100) as pct_wait_count         -- Percentage of waiting queriees
+from table(snowflake.information_schema.query_history_by_warehouse(
+                        WAREHOUSE_NAME      => 'JRYAN_VWH',
+                        END_TIME_RANGE_START=> dateadd('hour',-24,current_timestamp()),
+                        END_TIME_RANGE_END  => current_timestamp(),
+                        RESULT_LIMIT=>1000)) q
 where query_type in ('SELECT', 'INSERT', 'UPDATE','DELETE')
-and   warehouse_name = 'JRYAN_VWH'
-and   start_time between to_timestamp(dateadd('day',-1,current_date())) and current_timestamp()
-and   warehouse_size is not null
+and   warehouse_size is not null
 group by date
-,       time
-,       warehouse_name
-,       warehouse_size
+,       time
+,       warehouse_name
+,       warehouse_size
 order by 1,2;
